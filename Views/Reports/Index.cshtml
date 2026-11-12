@@ -1,0 +1,201 @@
+@using IoT_Test.Models.ViewModels
+@model ReportsViewModel
+@{
+    ViewData["Title"] = "Energy Reports";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1 fw-bold"><i class="bi bi-bar-chart-line text-primary me-2"></i>Energy Reports</h1>
+        <p class="text-muted mb-0 small">Analyze historical energy production and performance metrics</p>
+    </div>
+</div>
+
+<!-- Filter Form -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-transparent border-0">
+        <h6 class="fw-bold mb-0"><i class="bi bi-funnel me-2"></i>Report Parameters</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Plant</label>
+                <select name="plantId" class="form-select">
+                    <option value="">All Plants</option>
+                    @foreach (var p in Model.Plants)
+                    {
+                        if (Model.SelectedPlantId == p.Id) { <option value="@p.Id" selected>@p.Name</option> } else { <option value="@p.Id">@p.Name</option> }
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Start Date</label>
+                <input type="date" name="startDate" class="form-control"
+                       value="@Model.StartDate.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">End Date</label>
+                <input type="date" name="endDate" class="form-control"
+                       value="@Model.EndDate.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Report Type</label>
+                <select name="reportType" class="form-select">
+                    @if (Model.ReportType == "hourly") { <option value="hourly" selected>Hourly</option> } else { <option value="hourly">Hourly</option> }
+                    @if (Model.ReportType == "daily")  { <option value="daily" selected>Daily</option>  } else { <option value="daily">Daily</option>  }
+                    @if (Model.ReportType == "monthly") { <option value="monthly" selected>Monthly</option> } else { <option value="monthly">Monthly</option> }
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill">
+                    <i class="bi bi-play-fill me-1"></i>Generate Report
+                </button>
+                <a asp-action="Index" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.ReportData.Any())
+{
+    <!-- Summary KPIs -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body py-3">
+                    <div class="fs-4 fw-bold text-success">@Model.TotalGeneration.ToString("N1")</div>
+                    <div class="text-muted small">Total kWh</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body py-3">
+                    <div class="fs-4 fw-bold text-warning">@((Model.AveragePerformanceRatio * 100).ToString("N1"))%</div>
+                    <div class="text-muted small">Avg Performance Ratio</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body py-3">
+                    <div class="fs-4 fw-bold text-primary">@Model.PeakPower.ToString("N1")</div>
+                    <div class="text-muted small">Peak Power (kW)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body py-3">
+                    <div class="fs-4 fw-bold text-info">@Model.CO2Avoided.ToString("N2")</div>
+                    <div class="text-muted small">CO₂ Avoided (t)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0">
+            <h6 class="fw-bold mb-0"><i class="bi bi-graph-up me-2 text-success"></i>Energy Generation Trend</h6>
+        </div>
+        <div class="card-body">
+            <canvas id="reportChart" height="80"></canvas>
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold mb-0"><i class="bi bi-table me-2 text-primary"></i>Detailed Data</h6>
+            <span class="badge bg-primary-subtle text-primary">@Model.ReportData.Count rows</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+                <table class="table table-hover table-sm mb-0 align-middle" id="reportTable">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th class="ps-3">Period</th>
+                            <th class="text-end">Energy (kWh)</th>
+                            <th class="text-end">Peak Power (kW)</th>
+                            <th class="text-end">Avg PR</th>
+                            <th class="text-end pe-3">Avg Irradiance (W/m²)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.ReportData)
+                        {
+                            <tr>
+                                <td class="ps-3 font-monospace small">@row.Period</td>
+                                <td class="text-end fw-semibold">@row.EnergyKwh.ToString("N2")</td>
+                                <td class="text-end">@row.PeakPowerKw.ToString("N2")</td>
+                                <td class="text-end">
+                                    <span class="@(row.AvgPerformanceRatio >= 0.8 ? "text-success" : row.AvgPerformanceRatio >= 0.7 ? "text-warning" : "text-danger")">
+                                        @((row.AvgPerformanceRatio * 100).ToString("N1"))%
+                                    </span>
+                                </td>
+                                <td class="text-end pe-3">@row.AvgIrradiance.ToString("N1")</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td class="ps-3">Total / Average</td>
+                            <td class="text-end">@Model.TotalGeneration.ToString("N2")</td>
+                            <td class="text-end">@Model.PeakPower.ToString("N2")</td>
+                            <td class="text-end">@((Model.AveragePerformanceRatio * 100).ToString("N1"))%</td>
+                            <td class="pe-3"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-5 text-center text-muted">
+            <i class="bi bi-bar-chart fs-1 d-block mb-3 text-primary-subtle"></i>
+            <h5>No data for selected parameters</h5>
+            <p>Adjust the date range or plant selection and generate the report.</p>
+        </div>
+    </div>
+}
+
+@section Scripts {
+@if (Model.ReportData.Any())
+{
+    <script>
+    (function () {
+        const labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ReportData.Select(r => r.Period)));
+        const values = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ReportData.Select(r => r.EnergyKwh)));
+
+        new Chart(document.getElementById('reportChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Energy Generated (kWh)',
+                    data: values,
+                    borderColor: 'rgba(25,135,84,1)',
+                    backgroundColor: 'rgba(25,135,84,0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: labels.length > 50 ? 0 : 3
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'kWh' } }
+                }
+            }
+        });
+    })();
+    </script>
+}
+}

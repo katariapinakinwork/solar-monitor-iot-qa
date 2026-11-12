@@ -1,0 +1,272 @@
+@using IoT_Test.Models
+@using IoT_Test.Models.ViewModels
+@model PlantDetailViewModel
+@{
+    ViewData["Title"] = Model.Plant.Name;
+    var statusColor = Model.Plant.Status switch {
+        PlantStatus.Online => "success",
+        PlantStatus.Offline => "danger",
+        PlantStatus.Maintenance => "warning",
+        PlantStatus.Degraded => "danger",
+        _ => "secondary"
+    };
+}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Plants" asp-action="Index">Solar Plants</a></li>
+        <li class="breadcrumb-item active">@Model.Plant.Name</li>
+    </ol>
+</nav>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+    <div>
+        <h1 class="h3 mb-1 fw-bold">@Model.Plant.Name</h1>
+        <p class="text-muted mb-0 small">
+            <i class="bi bi-geo-alt me-1"></i>@Model.Plant.Location &nbsp;|&nbsp;
+            <i class="bi bi-calendar3 me-1"></i>Commissioned @Model.Plant.CommissionedDate.ToString("MMMM yyyy") &nbsp;|&nbsp;
+            <i class="bi bi-tags me-1"></i>@Model.Plant.Region
+        </p>
+    </div>
+    <span class="badge bg-@statusColor fs-6 px-3 py-2">
+        @Model.Plant.Status
+    </span>
+</div>
+
+<!-- Active Alerts Banner -->
+@if (Model.ActiveAlerts.Any())
+{
+    <div class="alert alert-danger d-flex align-items-center gap-3 mb-4">
+        <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+        <div>
+            <strong>@Model.ActiveAlerts.Count active alert(s)</strong> require attention.
+            @foreach (var a in Model.ActiveAlerts.Take(2))
+            {
+                <span class="ms-2 badge bg-danger">@a.Title</span>
+            }
+            @if (Model.ActiveAlerts.Count > 2)
+            {
+                <span class="ms-1 text-muted small">+@(Model.ActiveAlerts.Count - 2) more</span>
+            }
+        </div>
+        <a asp-controller="Alerts" asp-action="Index" class="btn btn-sm btn-outline-danger ms-auto">View Alerts</a>
+    </div>
+}
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-2">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold text-success">@Model.TodayGenerationKwh.ToString("N1")</div>
+                <div class="text-muted small">kWh Today</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold text-primary">@Model.MonthGenerationKwh.ToString("N1")</div>
+                <div class="text-muted small">kWh This Month</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold text-warning">@Model.CurrentPowerKw.ToString("N1")</div>
+                <div class="text-muted small">kW Current</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold text-info">@((Model.PerformanceRatio * 100).ToString("N1"))%</div>
+                <div class="text-muted small">Performance Ratio</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold text-success">@Model.ActivePanels</div>
+                <div class="text-muted small">Panels Active</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <div class="fs-4 fw-bold @(Model.FaultyPanels > 0 ? "text-danger" : "text-muted")">@Model.FaultyPanels</div>
+                <div class="text-muted small">Panels Faulty</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-2 text-warning"></i>Hourly Production — Today</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="hourlyChart" height="160"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-calendar-week me-2 text-primary"></i>Daily Production — This Month</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="dailyChart" height="160"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plant Info + Panels Table -->
+<div class="row g-3">
+    <!-- Plant Info -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-transparent border-0">
+                <h6 class="fw-bold mb-0"><i class="bi bi-info-circle me-2 text-info"></i>Plant Information</h6>
+            </div>
+            <div class="card-body">
+                <dl class="row small mb-0">
+                    <dt class="col-5 text-muted">Capacity</dt>
+                    <dd class="col-7">@(Model.Plant.CapacityKw.ToString("N0")) kW</dd>
+                    <dt class="col-5 text-muted">Total Panels</dt>
+                    <dd class="col-7">@Model.Plant.PanelCount.ToString("N0")</dd>
+                    <dt class="col-5 text-muted">Peak Power</dt>
+                    <dd class="col-7">@Model.PeakPowerKw.ToString("N1") kW</dd>
+                    <dt class="col-5 text-muted">Avg Irradiance</dt>
+                    <dd class="col-7">@Model.AverageIrradiance W/m²</dd>
+                    <dt class="col-5 text-muted">Latitude</dt>
+                    <dd class="col-7">@Model.Plant.Latitude.ToString("F4")°</dd>
+                    <dt class="col-5 text-muted">Longitude</dt>
+                    <dd class="col-7">@Model.Plant.Longitude.ToString("F4")°</dd>
+                    <dt class="col-5 text-muted">Region</dt>
+                    <dd class="col-7">@Model.Plant.Region</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panels Table -->
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0"><i class="bi bi-grid-fill me-2 text-primary"></i>Panel Inventory (sample)</h6>
+                <span class="badge bg-primary-subtle text-primary">@Model.Panels.Count shown</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height:340px; overflow-y:auto;">
+                    <table class="table table-hover table-sm mb-0 align-middle">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th class="ps-3">Serial No.</th>
+                                <th>Model</th>
+                                <th>String</th>
+                                <th>Efficiency</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var panel in Model.Panels)
+                            {
+                                var pStatus = panel.Status switch {
+                                    PanelStatus.Active => ("success", "bi-check-circle-fill"),
+                                    PanelStatus.Faulty => ("danger", "bi-x-circle-fill"),
+                                    PanelStatus.Offline => ("secondary", "bi-dash-circle-fill"),
+                                    PanelStatus.Underperforming => ("warning", "bi-exclamation-circle-fill"),
+                                    _ => ("secondary", "bi-question-circle")
+                                };
+                                <tr>
+                                    <td class="ps-3 font-monospace small">@panel.SerialNumber</td>
+                                    <td class="small">@panel.Model</td>
+                                    <td class="small font-monospace">@panel.StringGroup</td>
+                                    <td class="small">
+                                        @if (panel.Efficiency > 0)
+                                        {
+                                            <span>@panel.Efficiency.ToString("F1")%</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-@pStatus.Item1 @(panel.Status == PanelStatus.Underperforming ? "text-dark" : "")">
+                                            <i class="bi @pStatus.Item2 me-1"></i>@panel.Status
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const hourlyLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.HourlyToday.Select(p => p.Label)));
+    const hourlyValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.HourlyToday.Select(p => p.Value)));
+    const dailyLabels  = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DailyThisMonth.Select(p => p.Label)));
+    const dailyValues  = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DailyThisMonth.Select(p => p.Value)));
+
+    new Chart(document.getElementById('hourlyChart'), {
+        type: 'line',
+        data: {
+            labels: hourlyLabels,
+            datasets: [{
+                label: 'kWh',
+                data: hourlyValues,
+                borderColor: 'rgba(255,193,7,1)',
+                backgroundColor: 'rgba(255,193,7,0.15)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    new Chart(document.getElementById('dailyChart'), {
+        type: 'bar',
+        data: {
+            labels: dailyLabels,
+            datasets: [{
+                label: 'kWh',
+                data: dailyValues,
+                backgroundColor: 'rgba(13,110,253,0.6)',
+                borderColor: 'rgba(13,110,253,1)',
+                borderWidth: 1,
+                borderRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+})();
+</script>
+}

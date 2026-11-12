@@ -1,0 +1,251 @@
+@using IoT_Test.Models
+@using IoT_Test.Models.ViewModels
+@model AlertsViewModel
+@{
+    ViewData["Title"] = "Alerts";
+    var activeTab = ViewBag.ActiveTab as string ?? "active";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1 fw-bold"><i class="bi bi-bell-fill text-danger me-2"></i>Alerts &amp; Notifications</h1>
+        <p class="text-muted mb-0 small">Monitor and respond to system alerts across all plants</p>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-danger">@Model.TotalActive</div>
+                <div class="text-muted small">Active Alerts</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center border-danger">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-danger">@Model.TotalCritical</div>
+                <div class="text-muted small">Critical</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-warning">@Model.TotalWarning</div>
+                <div class="text-muted small">Warning</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm text-center">
+            <div class="card-body py-3">
+                <div class="fs-3 fw-bold text-info">@Model.TotalInfo</div>
+                <div class="text-muted small">Info</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Bar -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">Severity</label>
+                <select name="severity" class="form-select form-select-sm">
+                    <option value="">All Severities</option>
+                    @foreach (var s in Enum.GetNames<AlertSeverity>())
+                    {
+                        if (Model.FilterSeverity == s) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> }
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">Plant</label>
+                <select name="plantId" class="form-select form-select-sm">
+                    <option value="">All Plants</option>
+                    @foreach (var p in Model.Plants)
+                    {
+                        if (Model.FilterPlant == p.Id.ToString()) { <option value="@p.Id" selected>@p.Name</option> } else { <option value="@p.Id">@p.Name</option> }
+                    }
+                </select>
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                    <i class="bi bi-funnel me-1"></i>Filter
+                </button>
+                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x"></i> Clear
+                </a>
+            </div>
+            <input type="hidden" name="tab" value="@activeTab" />
+        </form>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-0" id="alertTabs">
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "active" ? "active" : "")" href="?tab=active&severity=@Model.FilterSeverity&plantId=@Model.FilterPlant">
+            Active <span class="badge bg-danger ms-1">@Model.ActiveAlerts.Count</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "resolved" ? "active" : "")" href="?tab=resolved&severity=@Model.FilterSeverity&plantId=@Model.FilterPlant">
+            Resolved <span class="badge bg-secondary ms-1">@Model.ResolvedAlerts.Count</span>
+        </a>
+    </li>
+</ul>
+
+<div class="card border-0 shadow-sm border-top-0 rounded-top-0">
+    <div class="card-body p-0">
+        @if (activeTab == "active")
+        {
+            if (!Model.ActiveAlerts.Any())
+            {
+                <div class="p-5 text-center text-muted">
+                    <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-3"></i>
+                    <h5>No active alerts</h5>
+                    <p>All systems are operating normally.</p>
+                </div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush" id="active-alerts-list">
+                    @foreach (var alert in Model.ActiveAlerts)
+                    {
+                        var sev = alert.Severity switch {
+                            AlertSeverity.Critical => ("danger", "bi-exclamation-octagon-fill"),
+                            AlertSeverity.Warning  => ("warning", "bi-exclamation-triangle-fill"),
+                            _                      => ("info",    "bi-info-circle-fill")
+                        };
+                        <div class="list-group-item list-group-item-action border-start border-@sev.Item1 border-4 px-4 py-3"
+                             data-alert-id="@alert.Id">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="d-flex gap-3 align-items-start">
+                                    <i class="bi @sev.Item2 text-@sev.Item1 fs-4 mt-1"></i>
+                                    <div>
+                                        <div class="fw-bold">@alert.Title</div>
+                                        <div class="text-muted small mb-1">@alert.Description</div>
+                                        <div class="d-flex gap-3 small text-muted">
+                                            <span><i class="bi bi-building me-1"></i>@alert.SolarPlant?.Name</span>
+                                            <span><i class="bi bi-clock me-1"></i>@alert.TriggeredAt.ToString("MMM dd, yyyy HH:mm")</span>
+                                            <span><i class="bi bi-tag me-1"></i>@alert.Type</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-column gap-2 align-items-end ms-3">
+                                    <span class="badge bg-@sev.Item1 @(alert.Severity == AlertSeverity.Warning ? "text-dark" : "")">@alert.Severity</span>
+                                    @if (User.IsInRole(UserRoles.ActionTaker) || alert.Severity == AlertSeverity.Info)
+                                    {
+                                        <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal"
+                                                data-bs-target="#ackModal"
+                                                data-alert-id="@alert.Id"
+                                                data-alert-title="@alert.Title">
+                                            <i class="bi bi-check-lg me-1"></i>Acknowledge
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary disabled"
+                                                disabled
+                                                title="Action Taker role required to acknowledge alerts">
+                                            <i class="bi bi-lock-fill me-1"></i>Acknowledge
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            if (!Model.ResolvedAlerts.Any())
+            {
+                <div class="p-5 text-center text-muted">
+                    <i class="bi bi-clock-history fs-1 d-block mb-3"></i>
+                    <h5>No resolved alerts</h5>
+                </div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var alert in Model.ResolvedAlerts)
+                    {
+                        <div class="list-group-item border-start border-secondary border-4 px-4 py-3 opacity-75">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="d-flex gap-3 align-items-start">
+                                    <i class="bi bi-check-circle-fill text-success fs-4 mt-1"></i>
+                                    <div>
+                                        <div class="fw-bold text-decoration-line-through text-muted">@alert.Title</div>
+                                        <div class="text-muted small mb-1">@alert.Description</div>
+                                        <div class="d-flex gap-3 small text-muted">
+                                            <span><i class="bi bi-building me-1"></i>@alert.SolarPlant?.Name</span>
+                                            <span><i class="bi bi-clock me-1"></i>Triggered: @alert.TriggeredAt.ToString("MMM dd, HH:mm")</span>
+                                            @if (alert.ResolvedAt.HasValue)
+                                            {
+                                                <span><i class="bi bi-check me-1"></i>Resolved: @alert.ResolvedAt.Value.ToString("MMM dd, HH:mm")</span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(alert.AcknowledgedBy))
+                                            {
+                                                <span><i class="bi bi-person me-1"></i>By: @alert.AcknowledgedBy</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="badge bg-secondary">Resolved</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+<!-- Acknowledge Modal -->
+<div class="modal fade" id="ackModal" tabindex="-1" aria-labelledby="ackModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" asp-controller="Alerts" asp-action="Acknowledge">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" id="ackAlertId" />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ackModalLabel">Acknowledge Alert</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">You are acknowledging and resolving:</p>
+                    <p class="fw-bold" id="ackAlertTitle"></p>
+                    <div class="mb-3">
+                        <label class="form-label">Your Name / ID <span class="text-danger">*</span></label>
+                        <input type="text" name="acknowledgedBy" class="form-control" placeholder="e.g. Engineer Priya Sharma" />
+                        <div class="form-text text-muted">Leave blank to submit anonymously.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg me-1"></i>Confirm Acknowledge
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+var ackModal = document.getElementById('ackModal');
+ackModal.addEventListener('show.bs.modal', function(event) {
+    var btn = event.relatedTarget;
+    document.getElementById('ackAlertId').value = btn.getAttribute('data-alert-id');
+    document.getElementById('ackAlertTitle').textContent = btn.getAttribute('data-alert-title');
+});
+</script>
+}

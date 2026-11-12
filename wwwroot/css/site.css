@@ -1,0 +1,68 @@
+/* SolarMonitor IIoT — Custom Styles */
+
+:root {
+    --solar-orange: #fd7e14;
+    --solar-dark:   #1a1a2e;
+}
+
+html { font-size: 15px; }
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: #f4f6f9;
+    color: #2d2d2d;
+}
+
+/* ── Navbar ─────────────────────────────────────────────────── */
+.navbar-brand { letter-spacing: 0.5px; }
+.status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 2s infinite;
+}
+.status-online  { background-color: #28a745; }
+.status-offline { background-color: #dc3545; }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+}
+
+/* ── Cards ──────────────────────────────────────────────────── */
+.card { border-radius: 12px; transition: box-shadow 0.2s; }
+.card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.10) !important; }
+.kpi-card .kpi-icon { flex-shrink: 0; }
+
+/* ── Plant Cards ────────────────────────────────────────────── */
+.plant-card { transition: transform 0.2s, box-shadow 0.2s; }
+.plant-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,0.12) !important; }
+.metric-box { transition: background-color 0.15s; }
+
+/* ── Tables ─────────────────────────────────────────────────── */
+.table th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6c757d; }
+.sticky-top { position: sticky; top: 0; z-index: 1; background: white; }
+
+/* ── Badges ─────────────────────────────────────────────────── */
+.bg-orange { background-color: var(--solar-orange) !important; }
+
+/* ── Alerts list ────────────────────────────────────────────── */
+.list-group-item { transition: background-color 0.15s; }
+.border-4 { border-width: 4px !important; }
+
+/* ── Charts ─────────────────────────────────────────────────── */
+canvas { max-width: 100%; }
+
+/* ── Footer ─────────────────────────────────────────────────── */
+.footer { font-size: 0.82rem; }
+
+/* ── Breadcrumb ─────────────────────────────────────────────── */
+.breadcrumb { font-size: 0.85rem; }
+
+/* ── Responsive tweaks ──────────────────────────────────────── */
+@media (max-width: 576px) {
+    h1.h3 { font-size: 1.2rem; }
+    .kpi-card .fs-4 { font-size: 1.1rem !important; }
+}
