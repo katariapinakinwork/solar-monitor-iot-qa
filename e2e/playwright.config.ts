@@ -1,13 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
+import { defineBddConfig } from 'playwright-bdd';
 
-// Where the app runs. Can be overridden, e.g. BASE_URL=http://localhost:5036
 const baseURL = process.env.BASE_URL ?? 'http://localhost:8080';
 
-export default defineConfig({
-  testDir: './tests',
+const testDir = defineBddConfig({
+  features: 'features/**/*.feature',
+  steps: ['fixtures/**/*.ts', 'hooks/**/*.ts', 'steps/**/*.ts'],
+});
 
-  // The app has one shared database and some tests change it,
-  // so tests run one at a time to keep results predictable.
+export default defineConfig({
+  testDir,
+  globalSetup: './global-setup.ts',
+
+  // shared database, so no parallel runs
   workers: 1,
   fullyParallel: false,
 
