@@ -1,141 +1,144 @@
-# Solar Monitor IoT: QA Automation Suite
+# Solar Monitor IoT - QA automation
 
 ![E2E tests](https://github.com/katariapinakinwork/solar-monitor-iot-qa/actions/workflows/ci.yml/badge.svg)
 
-End-to-end test suite for the **Solar Monitor IoT** web application (ASP.NET Core MVC + PostgreSQL), written in **TypeScript** with **Playwright** and **Cucumber/Gherkin** (via `playwright-bdd`).
+This repo has the Solar Monitor IoT app (ASP.NET Core MVC + PostgreSQL) and the end-to-end test suite I wrote for it. The tests are in TypeScript, written as Cucumber feature files and run on Playwright through `playwright-bdd`.
 
-- **130 scenarios** across authentication, role-based access, navigation, Dashboard, Solar Plants, Plant Detail, Alerts, Energy Reports and UI details
-- **15 defects** found and documented, each with an automated scenario that detects it. See [BUG_REPORT.md](BUG_REPORT.md)
-- Runs headless on **GitHub Actions** on every push, publishing the HTML report, screenshots and traces
+In numbers: 130 scenarios, 15 bugs logged (see [BUG_REPORT.md](BUG_REPORT.md)), and CI runs the whole suite on every push to `main`.
 
-The application's own documentation is in [docs/APP_README.md](docs/APP_README.md).
+The app's original README is in [docs/APP_README.md](docs/APP_README.md).
 
----
+## Prerequisites
 
-## 1. Prerequisites
+- Docker Desktop (with Docker Compose)
+- Node.js 18 or newer (CI uses 22)
+- Only if you want to run the app without Docker: .NET 10 SDK and PostgreSQL 14+
 
-| Tool | Version | Needed for |
-|---|---|---|
-| [Docker Desktop](https://www.docker.com/products/docker-desktop) | Recent, with Docker Compose v2 | Running the app and database (recommended) |
-| [Node.js](https://nodejs.org) | 18 or later (CI uses 22) | Running the tests |
-| [.NET SDK](https://dotnet.microsoft.com/download) | 10.0 | Only for running the app without Docker |
-| PostgreSQL | 14 or later | Only for running the app without Docker |
+## Running the app
 
-## 2. Run the application
+### With Docker
 
-### Option A: Docker (recommended)
-
-From the repository root:
+This is how I run it:
 
 ```bash
 docker compose up --build -d
 ```
 
-This starts PostgreSQL and the app. On first start the app creates its tables and seeds sample data: 5 plants, 100 panels, 31 days of readings, 10 alerts (6 active, 4 resolved) and two users. Open http://localhost:8080.
+On first start the app creates the database and seeds it: 5 plants, about a month of energy readings, 10 alerts (6 active, 4 resolved) and two users. It's then on http://localhost:8080.
 
-| Role | Username | Password |
+| User | Password | Can do |
 |---|---|---|
-| Viewer (read-only) | `viewer` | `Viewer@123` |
-| Action Taker (can acknowledge alerts) | `actiontaker` | `Action@123` |
+| `viewer` | `Viewer@123` | Read only |
+| `actiontaker` | `Action@123` | Everything, including acknowledging alerts |
 
-Useful commands:
+`docker compose down -v` deletes the database, and the next start seeds it again. I do that before every full local test run (see below for why).
 
-```bash
-docker compose ps                 # are both containers up?
-docker compose logs app --tail 50 # app logs
-docker compose down               # stop (keeps the data)
-docker compose down -v            # stop and delete the data; next start re-seeds
-```
+### Without Docker
 
-### Option B: .NET SDK without Docker for the app
+1. Start PostgreSQL. The easiest way is to start just the database container with `docker compose up -d db`. If you'd rather use your own server, create a database `solarmonitor` with user `solaruser` and password `solarpass` (the connection string is in `appsettings.json`).
+2. From the repo root, run `dotnet run`. The app migrates and seeds the database and listens on http://localhost:5036.
+3. Point the tests at it with `BASE_URL=http://localhost:5036`.
 
-1. Start PostgreSQL. The quickest way is only the database container: `docker compose up -d db`. Or use your own PostgreSQL 14+ with a database `solarmonitor`, user `solaruser`, password `solarpass`. The connection string is in `appsettings.json` (`ConnectionStrings:DefaultConnection`).
-2. From the repository root, run `dotnet run`. The app migrates and seeds the database, then listens on http://localhost:5036.
-3. Point the tests at it with `BASE_URL=http://localhost:5036` (see below).
-
-## 3. Run the tests
+## Running the tests
 
 ```bash
 cd e2e
 npm ci
 npx playwright install --with-deps chromium
+npm test
 ```
 
-| Mode | Command |
-|---|---|
-| Headless (default, as in CI) | `npm test` |
-| Headed (watch the browser) | `npm run test:headed` |
-| Playwright UI mode | `npm run test:ui` |
-| Debug, step by step | `npm test -- --debug` |
-| One feature file | `npm test -- alerts.feature` |
-| One scenario by name | `npm test -- --grep "Search ignores letter case"` |
-| Only the defect scenarios | `npm test -- --grep "@bug"` |
-| Another app address | `BASE_URL=http://localhost:5036 npm test` (PowerShell: `$env:BASE_URL="http://localhost:5036"; npm test`) |
-| Open the last HTML report | `npx playwright show-report` |
+Other ways to run it:
 
-**Reset the data before a full local run.** Three Alerts scenarios acknowledge alerts, which can't be undone through the UI. Run `docker compose down -v` and `docker compose up -d` first. CI always starts from a fresh database.
+```bash
+npm run test:headed                                # watch it in a real browser
+npm run test:ui                                    # Playwright UI mode
+npm test -- --debug                                # step through
+npm test -- alerts.feature                         # one feature file
+npm test -- --grep "Search ignores letter case"    # one scenario
+npm test -- --grep "@bug"                          # only the bug scenarios
+npx playwright show-report                         # open the last HTML report
+```
 
-If the app isn't running, the suite stops in under a minute with a message saying what to start, instead of failing every test.
+To test a different address, set `BASE_URL` (in PowerShell: `$env:BASE_URL="http://localhost:5036"; npm test`).
 
-## 4. Suite architecture
+Two things to know before running locally:
+
+- **Reset the database before a full run.** Three of the Alerts scenarios acknowledge alerts, and that can't be undone from the UI. CI starts from a fresh database every time, so it isn't a problem there.
+- **If the app isn't running, the suite tells you.** `global-setup.ts` waits up to 30 seconds for the login page. If it never answers, the run stops with a message saying what to start, instead of every test failing on a connection error.
+
+## How the suite is organised
 
 ```
 e2e/
-├── features/        Gherkin feature files, one per area (Given / When / Then)
-├── steps/           Step definitions for those features
-├── pages/           Page objects: XPath locators plus one method per user action
-├── fixtures/        Custom fixtures: create the page objects and a per-scenario context
-├── hooks/           Before / After hooks (e.g. attach the page URL when a scenario fails)
-├── constants/       Routes, status names and other fixed values
-├── types/           Shared TypeScript types (plant card, scenario context, user)
-├── test-data/       Test data such as the seeded accounts
-├── utils/           Helpers: number parsing, chart reading, dates
-├── global-setup.ts  Health check before the run starts
-└── playwright.config.ts
+  features/        feature files, one per area
+  steps/           step definitions
+  pages/           page objects
+  fixtures/        custom fixtures (page objects + a per-scenario context)
+  hooks/           before/after hooks
+  constants/       routes and fixed values
+  types/           shared types
+  test-data/       seeded accounts
+  utils/           number parsing, chart reading, dates
+  global-setup.ts  checks the app is up before anything runs
+  playwright.config.ts
 ```
 
-### Design patterns and decisions
+Some decisions and the reasons for them:
 
-- **BDD with Gherkin.** Scenarios read as business behaviour and map one-to-one to the test cases (IDs such as `ALERT-09` are in comments above each scenario). `playwright-bdd` runs them on Playwright's own runner, so the suite keeps Playwright's HTML report, traces, screenshots and parallel tooling.
-- **Page Object Model.** Each page has one class. Locators are declared once as fields, and each user action is one method. Steps call page methods and never use raw selectors.
-- **Fixtures for dependency injection.** Page objects and a per-scenario context (`ctx`) are injected into steps. The context carries values from one step to a later one, e.g. plant totals read on one page and compared on another.
-- **Cross-page consistency checks.** Many scenarios check that figures agree across pages: dashboard totals against the plant list, alert counts on plant cards against the Alerts page, report totals across hourly, daily and monthly views.
-- **Charts tested by their data.** Chart assertions read the data behind each Chart.js chart, not its pixels.
-- **UI and request-level checks.** Authorization and CSRF protection are also checked by sending requests directly, the way an attacker would bypass a disabled button.
-- **Known defects stay visible but keep CI green.** Each defect scenario is tagged `@bug @BUG-xx @fail`. It asserts the *correct* behaviour, so it fails while the defect exists, and `@fail` marks that failure as expected. The HTML report shows each one with its error, screenshot and trace. If a defect is fixed, the scenario starts passing, Playwright reports it as "expected to fail but passed", and the tag should be removed.
-- **Data-changing scenarios are isolated.** They're tagged `@changes-data`, never take the last alert of any severity (other scenarios need one of each), and skip with a reset message when the data has run out.
-- **Fail fast on environment problems.** `global-setup.ts` waits for the app and stops the run with a clear message if it's unreachable.
-- **Deterministic runs.** One worker, because every scenario shares one database.
+**Gherkin with playwright-bdd.** I wanted the scenarios to be readable by someone who won't open the step code. `playwright-bdd` turns the feature files into ordinary Playwright tests, so I still get Playwright's runner, HTML report, traces and screenshots. Each scenario has its test case ID in a comment above it (AUTH-01, ALERT-09 and so on).
 
-## 5. Continuous integration
+**Page objects.** One class per page, with the XPath locators declared at the top and one method per user action. Steps call page methods and don't touch selectors directly.
 
-`.github/workflows/ci.yml` runs on every push to `main`, on pull requests and on demand:
+**Fixtures.** The page objects, plus a small context object, are injected into the steps. The context lets one step read numbers on one page and a later step compare them on another.
 
-1. Builds and starts the app and database with Docker Compose
-2. Installs Node.js, the test dependencies and Chromium
-3. Waits for the health check on port 8080
-4. Runs the whole suite headless
-5. Uploads the HTML report (`playwright-report`) and screenshots and traces (`test-results`) as artifacts, kept for 14 days
-6. Prints the app logs if anything fails, and stops the stack
+**Checking that numbers agree.** A lot of the coverage is comparisons rather than "is it visible": the dashboard's total capacity against the plant cards, the alert count on each plant card against the Alerts page filtered to that plant, and report totals across the hourly, daily and monthly views. Charts are checked through the data Chart.js was given, not through screenshots.
 
-## 6. Bug report
+**Going around the UI where it matters.** For permissions and CSRF I also send the POST requests directly. A disabled button doesn't protect anything if the endpoint accepts the request anyway, which is exactly BUG-01.
 
-All 15 defects, with severity, steps to reproduce, expected and actual behaviour, and the scenario that detects each one, are in **[BUG_REPORT.md](BUG_REPORT.md)**.
+**Known bugs, with CI still green.** Each bug scenario is tagged `@bug @BUG-xx @fail`. It asserts what should happen, so it fails while the bug exists, and `@fail` tells Playwright that failure is expected. The HTML report still shows each one with its error and screenshot. If a bug gets fixed, its scenario starts passing, Playwright flags that as unexpected, and that's the cue to remove the tag.
 
-| ID | Severity | Defect |
+**Scenarios that change data.** These are tagged `@changes-data`. They never acknowledge the last alert of any severity, because the role tests need one of each. If there's nothing left to use, they skip with a "reset the database" message instead of failing or passing silently.
+
+**One worker.** Every test shares one database, so they run one at a time to keep the counts predictable.
+
+## CI
+
+`.github/workflows/ci.yml` runs on pushes to `main`, on pull requests, and on demand. It:
+
+1. builds and starts the app and database with `docker compose`
+2. installs Node.js, the test packages and Chromium
+3. waits for `/Account/Login` to respond on port 8080
+4. runs `npm test` headless
+5. uploads `playwright-report` and `test-results` (screenshots and traces) as artifacts, kept for 14 days
+
+If anything fails, it also prints the app container's logs.
+
+## Bugs found
+
+Full write-ups, with steps, expected and actual behaviour, the scenario that catches each one, and where the problem is in the code, are in [BUG_REPORT.md](BUG_REPORT.md).
+
+| ID | Severity | Summary |
 |---|---|---|
 | BUG-01 | Critical | A Viewer can acknowledge alerts by sending the request directly |
 | BUG-02 | High | Plant Detail pages open without signing in |
 | BUG-03 | High | A Viewer gets a working Acknowledge button on Info alerts |
 | BUG-04 | Medium | An alert can be acknowledged with a blank name |
-| BUG-05 | Medium | A resolved alert can be acknowledged again, overwriting its audit trail |
-| BUG-06 | Medium | Credential quick-fill buttons are missing from the login page |
-| BUG-12 | Medium | The footer is pinned to the first screen and covers content |
+| BUG-05 | Medium | A resolved alert can be acknowledged again, overwriting who resolved it |
+| BUG-06 | Medium | The credential quick-fill buttons are missing from the login page |
+| BUG-12 | Medium | The footer is stuck to the first screen and covers content |
 | BUG-14 | Medium | Grey text on dark backgrounds is unreadable |
-| BUG-15 | Medium | Report "Peak Power" for All Plants shows one plant's reading |
+| BUG-15 | Medium | Reports' Peak Power for All Plants is one plant's reading |
 | BUG-07 | Low | Plant search is case-sensitive |
-| BUG-08 | Low | "Panels Faulty" also counts Underperforming panels |
-| BUG-09 | Low | The Degraded status colour differs between pages |
-| BUG-10 | Low | A start date after the end date gives an unexplained empty report |
-| BUG-11 | Low | The login error text is not aligned with its icon |
+| BUG-08 | Low | Panels Faulty also counts Underperforming panels |
+| BUG-09 | Low | The Degraded badge is a different colour on the detail page |
+| BUG-10 | Low | A start date after the end date gives an empty report with no explanation |
+| BUG-11 | Low | The login error text isn't aligned with its icon |
 | BUG-13 | Low | The empty password field looks already filled in |
+
+## What I'd do with more time
+
+- Give the data-changing scenarios their own freshly seeded database (or a reset endpoint), instead of carefully rationing the seeded alerts.
+- Add Firefox and WebKit. I kept to Chromium for this assignment.
+- Use visual comparisons for the layout bugs (footer, contrast) instead of measuring positions and colours.
+- Split the bug scenarios into their own CI job, so the main job is purely "everything that should work".
