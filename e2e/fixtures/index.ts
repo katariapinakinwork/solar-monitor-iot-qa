@@ -7,6 +7,8 @@ import { AlertsPage } from '../pages/alertsPage';
 import { PlantDetailPage } from '../pages/plantDetailPage';
 import { PlantsPage } from '../pages/plantPage';
 import { ScenarioContext } from '../types/context';
+import { ReportsPage } from '../pages/reportsPage';
+import { UiPage } from '../pages/uiPage';
 
 type Pages = {
   loginPage: LoginPage;
@@ -16,6 +18,8 @@ type Pages = {
   plantDetailPage: PlantDetailPage;
   alertsPage: AlertsPage;
   accessDeniedPage: AccessDeniedPage;
+  reportsPage: ReportsPage;
+  uiPage: UiPage;
   ctx: ScenarioContext;
 };
 
@@ -41,6 +45,12 @@ export const test = base.extend<Pages>({
   },
   plantDetailPage: async ({ page }, use) => {
     await use(new PlantDetailPage(page));
+  },
+  reportsPage: async ({ page }, use) => {
+    await use(new ReportsPage(page));
+  },
+  uiPage: async ({ page }, use) => {
+    await use(new UiPage(page));
   },
   // A fresh, empty store for every scenario.
   ctx: async ({}, use) => {
