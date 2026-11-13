@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
-import { SESSION_COOKIE } from '../constants/cookies';
-import { ROUTES } from '../constants/routes';
+import { SESSION_COOKIE } from '../constants/app';
+import { ROUTES } from '../constants/app';
 import { Then, When } from '../fixtures';
 import { USERS } from '../test-data/login';
 

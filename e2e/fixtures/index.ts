@@ -4,14 +4,21 @@ import { DashboardPage } from '../pages/dashboardPage';
 import { NavBar } from '../pages/navBar';
 import { AccessDeniedPage } from '../pages/accessDeniedPage';
 import { AlertsPage } from '../pages/alertsPage';
+import { PlantDetailPage } from '../pages/plantDetailPage';
+import { PlantsPage } from '../pages/plantPage';
+import { ScenarioContext } from '../types/context';
 
 type Pages = {
   loginPage: LoginPage;
   navBar: NavBar;
   dashboardPage: DashboardPage;
+  plantsPage: PlantsPage;
+  plantDetailPage: PlantDetailPage;
   alertsPage: AlertsPage;
   accessDeniedPage: AccessDeniedPage;
+  ctx: ScenarioContext;
 };
+
 
 export const test = base.extend<Pages>({
   loginPage: async ({ page }, use) => {
@@ -28,6 +35,16 @@ export const test = base.extend<Pages>({
   },
   accessDeniedPage: async ({ page }, use) => {
     await use(new AccessDeniedPage(page));
+  },
+  plantsPage: async ({ page }, use) => {
+    await use(new PlantsPage(page));
+  },
+  plantDetailPage: async ({ page }, use) => {
+    await use(new PlantDetailPage(page));
+  },
+  // A fresh, empty store for every scenario.
+  ctx: async ({}, use) => {
+    await use({ plants: [], statusCounts: {}, values: {} });
   },
 });
 

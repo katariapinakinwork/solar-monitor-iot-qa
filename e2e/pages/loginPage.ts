@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { ROUTES } from '../constants/routes';
+import { ROUTES } from '../constants/app';
 
 export class LoginPage {
   private readonly usernameInput: Locator;

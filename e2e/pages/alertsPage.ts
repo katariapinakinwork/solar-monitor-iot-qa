@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { ROUTES } from '../constants/routes';
+import { ROUTES } from '../constants/app';
 
 export class AlertsPage {
   readonly activeAlerts: Locator;
@@ -28,5 +28,13 @@ export class AlertsPage {
   // The hidden security token the app expects with every form submission.
   async getAntiForgeryToken(): Promise<string> {
     return this.antiForgeryToken.inputValue();
+  }
+
+// Summary card count: "Active Alerts", "Critical", "Warning" or "Info".
+  async summaryCount(label: string): Promise<number> {
+    const value = this.page.locator(
+      `//div[contains(@class,'card-body')][div[normalize-space(.)='${label}']]/div[contains(@class,'fs-3')]`,
+    );
+    return Number((await value.innerText()).trim());
   }
 }

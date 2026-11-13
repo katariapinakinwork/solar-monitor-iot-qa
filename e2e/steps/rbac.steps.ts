@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { ROUTES } from '../constants/routes';
+import { ROUTES } from '../constants/app';
 import { Then, When } from '../fixtures/index';
 
 const RESET_HINT = 'Reset the database: docker compose down -v, then docker compose up -d';
