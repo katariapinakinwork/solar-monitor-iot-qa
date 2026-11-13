@@ -6,4 +6,5 @@ export const ROUTES = {
   plants: '/Plants',
   alerts: '/Alerts',
   reports: '/Reports',
+  acknowledgeAlert: '/Alerts/Acknowledge',
 } as const;

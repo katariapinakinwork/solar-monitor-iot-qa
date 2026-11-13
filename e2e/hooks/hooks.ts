@@ -1,7 +1,9 @@
 import { Before, After } from '../fixtures';
 
-Before(async ({ context }) => {
-  // Every scenario starts signed out.
+Before({ tags: '@bug' }, async ({ context, $testInfo }) => {
+  if (process.env.SHOW_BUG_FAILURES !== '1') {
+    $testInfo.fail();
+  }
   await context.clearCookies();
 });
 
@@ -14,3 +16,4 @@ After(async ({ page, $testInfo }) => {
     });
   }
 });
+
