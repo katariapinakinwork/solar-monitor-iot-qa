@@ -14,6 +14,11 @@ export class AlertsPage {
     await this.page.goto(ROUTES.alerts);
   }
 
+  // The Alerts page filtered to one plant (/Alerts?plantId=N).
+  async openForPlant(plantId: number) {
+    await this.page.goto(`${ROUTES.alerts}?plantId=${plantId}`);
+  }
+
   // Active alerts whose severity badge reads Critical, Warning or Info.
   activeAlertsWithSeverity(severity: string): Locator {
     return this.page.locator(
